@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: SEA home-services marketplace API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: marketplace
+    description: Customer marketplace operations
+  - name: bookings
+    description: Customer bookings
+  - name: professional
+    description: Professional workspace operations
+  - name: admin
+    description: Admin dashboard operations
 paths:
   /healthz:
     get:
@@ -24,6 +32,184 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /home:
+    get:
+      operationId: getHome
+      tags: [marketplace]
+      summary: Get the customer home feed
+      responses:
+        "200":
+          description: Personalized marketplace home feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeFeed"
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [marketplace]
+      summary: List service categories
+      responses:
+        "200":
+          description: Service categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+  /services:
+    get:
+      operationId: listServices
+      tags: [marketplace]
+      summary: List marketplace services
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Services matching the requested filters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+  /services/{serviceId}:
+    get:
+      operationId: getService
+      tags: [marketplace]
+      summary: Get service details
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Service detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceDetail"
+        "404":
+          description: Service not found
+  /professionals:
+    get:
+      operationId: listProfessionals
+      tags: [marketplace]
+      summary: List verified professionals
+      parameters:
+        - name: serviceId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: area
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Verified professionals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Professional"
+  /bookings:
+    get:
+      operationId: listBookings
+      tags: [bookings]
+      summary: List customer bookings
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [upcoming, ongoing, completed, cancelled]
+      responses:
+        "200":
+          description: Customer bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a booking request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /bookings/{bookingId}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: Get booking details and tracking state
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: Booking not found
+  /professional/dashboard:
+    get:
+      operationId: getProfessionalDashboard
+      tags: [professional]
+      summary: Get the professional dashboard
+      responses:
+        "200":
+          description: Professional earnings and job requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfessionalDashboard"
+  /admin/summary:
+    get:
+      operationId: getAdminSummary
+      tags: [admin]
+      summary: Get admin marketplace summary
+      responses:
+        "200":
+          description: Admin marketplace metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSummary"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +219,189 @@ components:
           type: string
       required:
         - status
+    Category:
+      type: object
+      required: [id, name, icon, serviceCount]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        icon: { type: string }
+        serviceCount: { type: integer }
+    Service:
+      type: object
+      required: [id, categoryId, name, description, imageUrl, startingPrice, duration, rating, bookings, accent]
+      properties:
+        id: { type: string }
+        categoryId: { type: string }
+        name: { type: string }
+        description: { type: string }
+        imageUrl: { type: string }
+        startingPrice: { type: number }
+        duration: { type: string }
+        rating: { type: number }
+        bookings: { type: integer }
+        accent: { type: string }
+    ServiceDetail:
+      allOf:
+        - $ref: "#/components/schemas/Service"
+        - type: object
+          required: [included, excluded, addOns, warranty, faqs, reviews]
+          properties:
+            included:
+              type: array
+              items: { type: string }
+            excluded:
+              type: array
+              items: { type: string }
+            addOns:
+              type: array
+              items:
+                $ref: "#/components/schemas/AddOn"
+            warranty: { type: string }
+            faqs:
+              type: array
+              items:
+                $ref: "#/components/schemas/Faq"
+            reviews:
+              type: array
+              items:
+                $ref: "#/components/schemas/Review"
+    AddOn:
+      type: object
+      required: [id, name, price]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        price: { type: number }
+    Faq:
+      type: object
+      required: [question, answer]
+      properties:
+        question: { type: string }
+        answer: { type: string }
+    Review:
+      type: object
+      required: [id, customerName, rating, comment, date]
+      properties:
+        id: { type: string }
+        customerName: { type: string }
+        rating: { type: number }
+        comment: { type: string }
+        date: { type: string }
+    Professional:
+      type: object
+      required: [id, name, photoUrl, verified, rating, totalJobs, experience, skills, availability, startingPrice, area]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        photoUrl: { type: string }
+        verified: { type: boolean }
+        rating: { type: number }
+        totalJobs: { type: integer }
+        experience: { type: string }
+        skills:
+          type: array
+          items: { type: string }
+        availability: { type: string }
+        startingPrice: { type: number }
+        area: { type: string }
+    Booking:
+      type: object
+      required: [id, service, professional, status, scheduledAt, address, total, eta, progress]
+      properties:
+        id: { type: string }
+        service:
+          $ref: "#/components/schemas/Service"
+        professional:
+          $ref: "#/components/schemas/Professional"
+        status:
+          type: string
+          enum: [upcoming, ongoing, completed, cancelled]
+        scheduledAt: { type: string }
+        address: { type: string }
+        total: { type: number }
+        eta: { type: string }
+        progress: { type: integer, minimum: 0, maximum: 100 }
+    BookingInput:
+      type: object
+      required: [serviceId, scheduledAt, address, paymentMethod]
+      properties:
+        serviceId: { type: string }
+        professionalId:
+          type: ["string", "null"]
+        scheduledAt: { type: string }
+        address: { type: string }
+        instructions:
+          type: ["string", "null"]
+        addOnIds:
+          type: array
+          items: { type: string }
+        paymentMethod:
+          type: string
+          enum: [upi, card, netbanking, wallet, cash]
+    HomeFeed:
+      type: object
+      required: [greeting, location, categories, popularServices, recommended, recentlyBooked, offers, verifiedProfessionals]
+      properties:
+        greeting: { type: string }
+        location: { type: string }
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        popularServices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Service"
+        recommended:
+          type: array
+          items:
+            $ref: "#/components/schemas/Service"
+        recentlyBooked:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Offer"
+        verifiedProfessionals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Professional"
+    Offer:
+      type: object
+      required: [id, title, subtitle, code, accent]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        subtitle: { type: string }
+        code: { type: string }
+        accent: { type: string }
+    ProfessionalDashboard:
+      type: object
+      required: [professional, todayEarnings, todayJobs, pendingRequests, upcomingJobs, isOnline]
+      properties:
+        professional:
+          $ref: "#/components/schemas/Professional"
+        todayEarnings: { type: number }
+        todayJobs: { type: integer }
+        pendingRequests: { type: integer }
+        upcomingJobs: { type: integer }
+        isOnline: { type: boolean }
+    AdminSummary:
+      type: object
+      required: [totalUsers, activeUsers, totalProfessionals, activeProfessionals, totalBookings, completedBookings, cancelledBookings, gmv, revenue, commission, averageOrderValue]
+      properties:
+        totalUsers: { type: integer }
+        activeUsers: { type: integer }
+        totalProfessionals: { type: integer }
+        activeProfessionals: { type: integer }
+        totalBookings: { type: integer }
+        completedBookings: { type: integer }
+        cancelledBookings: { type: integer }
+        gmv: { type: number }
+        revenue: { type: number }
+        commission: { type: number }
+        averageOrderValue: { type: number }
 

@@ -1,0 +1,1 @@
+- [SEA workspace quirks](sea-workspace-quirks.md) — generated browser client typing needs iterable DOM definitions.

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "SEA Home Services Marketplace"
+description = "A premium Indian home-services marketplace connecting customers with verified professionals for trusted, on-demand and scheduled services."
+version = "1.0.0"
+id = "artifacts/sea-marketplace"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18560
+
+[services.development]
+run = "pnpm --filter @workspace/sea-marketplace run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sea-marketplace", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/sea-marketplace/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18560"
+BASE_PATH = "/"

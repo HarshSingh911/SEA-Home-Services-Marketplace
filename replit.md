@@ -1,6 +1,6 @@
-# [Project name]
+# SEA Home Services Marketplace
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+SEA connects customers in India with verified home-service professionals for trusted, on-demand and scheduled help.
 
 ## Run & Operate
 
@@ -22,23 +22,34 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/sea-marketplace` — React + Vite customer, professional, and admin experiences.
+- `artifacts/api-server` — Express API routes for marketplace, bookings, and dashboards.
+- `lib/api-spec/openapi.yaml` — source of truth for typed API contracts and generated hooks.
+- `lib/db/src/schema` — Drizzle schema for SEA users, categories, services, professionals, bookings, reviews, and addresses.
+- `artifacts/sea-marketplace/src/index.css` — SEA visual tokens and shared theme.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- OpenAPI is the contract boundary; React Query hooks and Zod response schemas are generated from `lib/api-spec/openapi.yaml`.
+- The first customer experience is backed by PostgreSQL seed data so marketplace, booking, and role dashboards remain real after reload.
+- Service and booking responses are assembled from normalized marketplace tables into the nested shapes the UI needs.
+- A shared Express API serves `/api` while the web artifact stays responsible for presentation and client state.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Customer home feed with service discovery, search, categories, offers, verified professionals, and recent bookings.
+- Service details with included work, exclusions, add-ons, warranty, FAQs, reviews, and booking creation.
+- Booking list and tracking views, plus professional and admin dashboard surfaces.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+The SEA brief calls for a premium, clean, trustworthy, mobile-first experience with royal blue and purple accents, rounded surfaces, and simple booking flows.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run `pnpm --filter @workspace/api-spec run codegen` after changing the OpenAPI contract.
+- Rebuild shared declarations with `pnpm run typecheck:libs` before typechecking API routes after DB schema changes.
+- Vite builds require `PORT` and `BASE_PATH`; managed workflows provide them automatically.
 
 ## Pointers
 
