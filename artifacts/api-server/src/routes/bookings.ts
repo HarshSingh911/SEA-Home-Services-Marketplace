@@ -1,6 +1,4 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, bookingsTable, professionalsTable, servicesTable } from "@workspace/db";
 import {
   CreateBookingBody,
   CreateBookingResponse,
@@ -9,53 +7,52 @@ import {
   ListBookingsQueryParams,
   ListBookingsResponse,
 } from "@workspace/api-zod";
-import { ensureSeeded, getBookingView, toProfessional, toService } from "../lib/sea-data";
+import {
+  createSupabaseBooking,
+  getSupabaseBookingRows,
+  getSupabaseService,
+  toBookingView,
+} from "../lib/sea-data";
 
 const router: IRouter = Router();
 
 router.get("/bookings", async (req, res): Promise<void> => {
-  await ensureSeeded();
   const parsed = ListBookingsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const rows = await db.select().from(bookingsTable).where(
-    parsed.data.status ? eq(bookingsTable.status, parsed.data.status) : undefined,
-  );
-  const bookings = await Promise.all(rows.map((row) => getBookingView(row.id)));
+  const rows = await getSupabaseBookingRows({ status: parsed.data.status });
+  const bookings = await Promise.all(rows.map(toBookingView));
   res.json(ListBookingsResponse.parse(bookings.filter(Boolean)));
 });
 
 router.post("/bookings", async (req, res): Promise<void> => {
-  await ensureSeeded();
   const parsed = CreateBookingBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [service] = await db.select().from(servicesTable).where(eq(servicesTable.id, parsed.data.serviceId));
+  const service = await getSupabaseService(parsed.data.serviceId);
   if (!service) {
     res.status(404).json({ error: "Service not found" });
     return;
   }
   const id = `booking-${Date.now()}`;
-  const professionalId = parsed.data.professionalId ?? "pro-amit-sharma";
-  await db.insert(bookingsTable).values({
+  const booking = await createSupabaseBooking({
     id,
-    userId: "user-demo",
-    serviceId: service.id,
-    professionalId,
+    user_id: "user-demo",
+    service_id: parsed.data.serviceId,
+    professional_id: parsed.data.professionalId ?? "pro-amit-sharma",
     status: "upcoming",
-    scheduledAt: new Date(parsed.data.scheduledAt),
+    scheduled_at: parsed.data.scheduledAt,
     address: parsed.data.address,
-    total: String(Number(service.startingPrice) + 50),
+    total: Number(service.starting_price ?? service.startingPrice ?? service.price ?? 0) + 50,
     eta: "Professional assignment pending",
     progress: 0,
     instructions: parsed.data.instructions ?? null,
-    paymentMethod: parsed.data.paymentMethod,
+    payment_method: parsed.data.paymentMethod,
   });
-  const booking = await getBookingView(id);
   if (!booking) {
     res.status(500).json({ error: "Booking could not be created" });
     return;
@@ -64,13 +61,13 @@ router.post("/bookings", async (req, res): Promise<void> => {
 });
 
 router.get("/bookings/:bookingId", async (req, res): Promise<void> => {
-  await ensureSeeded();
   const params = GetBookingParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const booking = await getBookingView(params.data.bookingId);
+  const [row] = await getSupabaseBookingRows({ id: params.data.bookingId });
+  const booking = row ? await toBookingView(row) : undefined;
   if (!booking) {
     res.status(404).json({ error: "Booking not found" });
     return;

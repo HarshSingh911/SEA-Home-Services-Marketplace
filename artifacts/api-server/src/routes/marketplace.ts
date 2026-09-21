@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { and, eq, ilike, or } from "drizzle-orm";
-import { db, categoriesTable, professionalsTable, servicesTable } from "@workspace/db";
+import { eq, ilike } from "drizzle-orm";
+import { db, professionalsTable } from "@workspace/db";
 import {
   GetHomeResponse,
   GetServiceParams,
@@ -12,10 +12,10 @@ import {
   ListServicesResponse,
 } from "@workspace/api-zod";
 import {
-  ensureSeeded,
-  getBookingView,
-  getServices,
-  seedServices,
+  ensureLocalSeeded,
+  getSupabaseCategories,
+  getSupabaseService,
+  getSupabaseServices,
   toProfessional,
   toService,
 } from "../lib/sea-data";
@@ -23,23 +23,21 @@ import {
 const router: IRouter = Router();
 
 router.get("/home", async (_req, res): Promise<void> => {
-  await ensureSeeded();
-  const [categories, services, professionals, recentlyBooked] = await Promise.all([
-    db.select().from(categoriesTable),
-    getServices(),
+  await ensureLocalSeeded();
+  const [categories, services, professionals] = await Promise.all([
+    getSupabaseCategories(),
+    getSupabaseServices(),
     db.select().from(professionalsTable),
-    getBookingView("booking-ac-001"),
   ]);
   const categoryResponse = ListCategoriesResponse.parse(categories);
   const professionalResponse = ListProfessionalsResponse.parse(professionals.map(toProfessional));
-  const bookings = recentlyBooked ? [recentlyBooked] : [];
   const data = {
     greeting: "Good morning, Aarav",
     location: "Indiranagar, Bengaluru",
     categories: categoryResponse,
     popularServices: services.slice(0, 4),
     recommended: services.slice(2, 6),
-    recentlyBooked: bookings,
+    recentlyBooked: [],
     offers: [
       { id: "offer-first-booking", title: "₹150 off your first booking", subtitle: "A little welcome from SEA", code: "SEA150", accent: "purple" },
       { id: "offer-weekend-care", title: "Weekend home care", subtitle: "Save 10% on selected services", code: "WEEKEND10", accent: "blue" },
@@ -50,29 +48,26 @@ router.get("/home", async (_req, res): Promise<void> => {
 });
 
 router.get("/categories", async (_req, res): Promise<void> => {
-  await ensureSeeded();
-  const categories = await db.select().from(categoriesTable);
+  const categories = await getSupabaseCategories();
   res.json(ListCategoriesResponse.parse(categories));
 });
 
 router.get("/services", async (req, res): Promise<void> => {
-  await ensureSeeded();
   const parsed = ListServicesQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  res.json(ListServicesResponse.parse(await getServices(parsed.data)));
+  res.json(ListServicesResponse.parse(await getSupabaseServices(parsed.data)));
 });
 
 router.get("/services/:serviceId", async (req, res): Promise<void> => {
-  await ensureSeeded();
   const params = GetServiceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [row] = await db.select().from(servicesTable).where(eq(servicesTable.id, params.data.serviceId));
+  const row = await getSupabaseService(params.data.serviceId);
   if (!row) {
     res.status(404).json({ error: "Service not found" });
     return;
@@ -83,8 +78,8 @@ router.get("/services/:serviceId", async (req, res): Promise<void> => {
   ];
   const detail = {
     ...toService(row),
-    included: row.included,
-    excluded: row.excluded,
+    included: Array.isArray(row.included) ? row.included : [],
+    excluded: Array.isArray(row.excluded) ? row.excluded : [],
     addOns: [
       { id: "addon-gas-check", name: "Gas pressure top-up check", price: 99 },
       { id: "addon-installation", name: "Installation consultation", price: 149 },
@@ -100,7 +95,7 @@ router.get("/services/:serviceId", async (req, res): Promise<void> => {
 });
 
 router.get("/professionals", async (req, res): Promise<void> => {
-  await ensureSeeded();
+  await ensureLocalSeeded();
   const parsed = ListProfessionalsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
